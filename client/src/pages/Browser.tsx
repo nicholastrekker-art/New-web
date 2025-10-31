@@ -54,11 +54,14 @@ function saveToStorage<T>(key: string, value: T): void {
 }
 
 export default function Browser() {
-  const [tabs, setTabs] = useState<Tab[]>(() => 
-    loadFromStorage(STORAGE_KEYS.TABS, [
+  // Initialize with restored session or default tab
+  const [tabs, setTabs] = useState<Tab[]>(() => {
+    const savedTabs = loadFromStorage(STORAGE_KEYS.TABS, [
       { id: '1', url: 'about:blank', title: 'New Tab', isLoading: false },
-    ])
-  );
+    ]);
+    // Clear loading states on restore
+    return savedTabs.map(tab => ({ ...tab, isLoading: false }));
+  });
   const [activeTabId, setActiveTabId] = useState(() => 
     loadFromStorage(STORAGE_KEYS.ACTIVE_TAB, '1')
   );

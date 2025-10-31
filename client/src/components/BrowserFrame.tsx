@@ -1,65 +1,69 @@
-import { useEffect, useRef, useState } from "react";
-import { Loader2, AlertCircle } from "lucide-react";
-import { Button } from "@/components/ui/button";
+
+import { useEffect, useRef, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 
 interface BrowserFrameProps {
   url: string;
   isActive: boolean;
-  onTitleChange?: (title: string) => void;
+  onTitleChange: (title: string) => void;
 }
 
-export default function BrowserFrame({
-  url,
-  isActive,
-  onTitleChange,
-}: BrowserFrameProps) {
+export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const prevUrlRef = useRef<string>(url);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
+  const previousUrlRef = useRef<string>('');
 
   useEffect(() => {
-    // Only update loading state if URL actually changed
-    if (prevUrlRef.current !== url) {
-      prevUrlRef.current = url;
-      if (url && url !== 'about:blank') {
-        setIsLoading(true);
-        setHasError(false);
-      } else {
-        setIsLoading(false);
-        setHasError(false);
-      }
+    // Only update loading state when URL actually changes
+    if (url !== previousUrlRef.current) {
+      setIsLoading(true);
+      setHasError(false);
+      previousUrlRef.current = url;
     }
   }, [url]);
 
-  const handleLoad = () => {
-    setIsLoading(false);
-    setHasError(false);
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe) return;
 
-    try {
-      const iframe = iframeRef.current;
-      if (iframe?.contentWindow?.document?.title) {
-        onTitleChange?.(iframe.contentWindow.document.title);
+    const handleLoad = () => {
+      setIsLoading(false);
+      
+      try {
+        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (iframeDoc) {
+          const title = iframeDoc.title || url;
+          onTitleChange(title);
+          
+          // Store session data for this URL
+          const sessionKey = `browser_session_${btoa(url).substring(0, 50)}`;
+          localStorage.setItem(sessionKey, JSON.stringify({
+            url,
+            title,
+            timestamp: Date.now()
+          }));
+        }
+      } catch (e) {
+        console.log('Cannot access iframe title due to CORS');
+        onTitleChange(new URL(url).hostname);
       }
-    } catch (e) {
-      console.log('Cannot access iframe title due to CORS');
-    }
-  };
+    };
 
-  const handleError = () => {
-    setIsLoading(false);
-    setHasError(true);
-    setErrorMessage("Failed to load the page. The website may not allow embedding.");
-  };
+    const handleError = () => {
+      setIsLoading(false);
+      setHasError(true);
+      onTitleChange('Failed to load');
+    };
 
-  const handleRetry = () => {
-    setHasError(false);
-    setIsLoading(true);
-    if (iframeRef.current) {
-      iframeRef.current.src = url;
-    }
-  };
+    iframe.addEventListener('load', handleLoad);
+    iframe.addEventListener('error', handleError);
+
+    return () => {
+      iframe.removeEventListener('load', handleLoad);
+      iframe.removeEventListener('error', handleError);
+    };
+  }, [url, onTitleChange]);
 
   if (!url || url === 'about:blank') {
     return (
@@ -79,6 +83,27 @@ export default function BrowserFrame({
     );
   }
 
+  if (hasError) {
+    return (
+      <div className={`flex items-center justify-center h-full bg-background ${isActive ? 'block' : 'hidden'}`}>
+        <div className="flex flex-col items-center gap-4 max-w-md text-center p-6">
+          <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center">
+            <span className="text-3xl">⚠️</span>
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold mb-2">Failed to Load</h2>
+            <p className="text-sm text-muted-foreground mb-2">
+              This website cannot be displayed in an iframe.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Many websites block embedding for security reasons (X-Frame-Options).
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={`relative w-full h-full ${isActive ? 'block' : 'hidden'}`}>
       {isLoading && (
@@ -86,30 +111,15 @@ export default function BrowserFrame({
           <Loader2 className="w-8 h-8 animate-spin text-primary" data-testid="loader-page" />
         </div>
       )}
-
-      {hasError && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background z-10">
-          <div className="flex flex-col items-center gap-4 max-w-md mx-auto px-4">
-            <AlertCircle className="w-16 h-16 text-destructive" />
-            <h2 className="text-lg font-semibold">Unable to Load Page</h2>
-            <p className="text-sm text-muted-foreground text-center">
-              {errorMessage}
-            </p>
-            <Button onClick={handleRetry} data-testid="button-retry">
-              Try Again
-            </Button>
-          </div>
-        </div>
-      )}
-
+      
       <iframe
         ref={iframeRef}
         src={url}
         className="w-full h-full border-0"
-        onLoad={handleLoad}
-        onError={handleError}
-        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
-        data-testid="iframe-browser"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-storage-access-by-user-activation"
+        allow="camera; microphone; geolocation; payment; autoplay; encrypted-media; clipboard-read; clipboard-write"
+        title="Browser content"
+        loading="eager"
       />
     </div>
   );

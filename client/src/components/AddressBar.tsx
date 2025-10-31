@@ -36,9 +36,17 @@ export default function AddressBar({
     e.preventDefault();
     if (inputValue.trim()) {
       let url = inputValue.trim();
-      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      
+      // Check if it's a search query or URL
+      const isUrl = url.includes('.') || url.startsWith('localhost') || url.startsWith('http');
+      
+      if (!isUrl) {
+        // Treat as search query (you can customize this to use preferred search engine)
+        url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+      } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
         url = 'https://' + url;
       }
+      
       onNavigate(url);
     }
   };
