@@ -33,7 +33,7 @@ export default function BrowserFrame({ url, isActive, onTitleChange, onLoadingCh
   useEffect(() => {
     // Only update loading state when URL actually changes
     if (url !== previousUrlRef.current && url !== 'about:blank') {
-      console.log(`[BrowserFrame] Navigating from ${previousUrlRef.current} to ${url}`);
+      console.log(`[BrowserFrame] 🌐 Navigating: ${previousUrlRef.current || 'blank'} → ${url}`);
       handleLoadingChange(true);
       setHasError(false);
       previousUrlRef.current = url;
@@ -52,31 +52,31 @@ export default function BrowserFrame({ url, isActive, onTitleChange, onLoadingCh
         // Try to access the iframe's current location
         const currentUrl = iframe.contentWindow?.location.href;
         if (currentUrl && currentUrl !== lastKnownUrl && currentUrl !== 'about:blank') {
-          console.log(`[BrowserFrame] Detected URL change via polling: ${lastKnownUrl} -> ${currentUrl}`);
+          console.log(`[BrowserFrame] 🔄 Navigation detected: ${lastKnownUrl} -> ${currentUrl}`);
           lastKnownUrl = currentUrl;
-          // Notify parent about the URL change
-          onTitleChange(new URL(currentUrl).hostname);
+          // Note: We don't update title here to avoid infinite loops
+          // Title will be updated on the load event instead
         }
       } catch (e) {
         // CORS restriction - cannot access iframe location
-        // This is expected for cross-origin iframes
+        // This is normal for cross-origin iframes
       }
-    }, 500); // Poll every 500ms
+    }, 1000); // Poll every 1 second
 
     return () => clearInterval(pollInterval);
-  }, [url, isActive, onTitleChange]);
+  }, [url, isActive]);
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
 
     const handleLoad = () => {
-      console.log(`[BrowserFrame] Load event fired for: ${url}`);
+      console.log(`[BrowserFrame] ✅ Page loaded: ${url}`);
       handleLoadingChange(false);
       
       // Only process title changes after initial load
       if (!hasInitializedRef.current) {
-        console.log(`[BrowserFrame] Skipping title update - not initialized`);
+        console.log(`[BrowserFrame] ⏭️  Skipping title update - not initialized`);
         return;
       }
       
@@ -86,18 +86,30 @@ export default function BrowserFrame({ url, isActive, onTitleChange, onLoadingCh
         
         if (iframeDoc) {
           pageTitle = iframeDoc.title || new URL(url).hostname;
-          console.log(`[BrowserFrame] Successfully accessed iframe document. Title: ${pageTitle}`);
+          console.log(`[BrowserFrame] 📄 Document accessible - Title: "${pageTitle}"`);
           
           // Log cookies for debugging authentication
           try {
             const cookies = iframeDoc.cookie;
-            console.log(`[BrowserFrame] Cookies available: ${cookies ? 'Yes' : 'No'}`);
+            if (cookies) {
+              console.log(`[BrowserFrame] 🍪 Cookies found:`, cookies.split(';').length, 'cookies');
+            } else {
+              console.log(`[BrowserFrame] 🍪 No cookies present`);
+            }
           } catch (cookieError) {
-            console.log(`[BrowserFrame] Cannot access cookies due to CORS`);
+            console.log(`[BrowserFrame] 🔒 Cannot access cookies (CORS protection)`);
+          }
+          
+          // Log localStorage for session tracking
+          try {
+            const storageKeys = Object.keys(iframeDoc.defaultView?.localStorage || {});
+            console.log(`[BrowserFrame] 💾 LocalStorage keys:`, storageKeys.length);
+          } catch (storageError) {
+            console.log(`[BrowserFrame] 🔒 Cannot access localStorage (CORS protection)`);
           }
         } else {
           pageTitle = new URL(url).hostname;
-          console.log(`[BrowserFrame] Cannot access iframe document (CORS), using hostname: ${pageTitle}`);
+          console.log(`[BrowserFrame] 🔒 CORS blocked - Cannot access document for: ${pageTitle}`);
         }
         
         // Update title
@@ -136,7 +148,8 @@ export default function BrowserFrame({ url, isActive, onTitleChange, onLoadingCh
     };
 
     const handleError = (event?: Event) => {
-      console.error(`[BrowserFrame] Error loading URL: ${url}`, event);
+      console.error(`[BrowserFrame] ❌ Failed to load: ${url}`, event);
+      console.log(`[BrowserFrame] 💡 Common causes: X-Frame-Options, CSP headers, or network issues`);
       handleLoadingChange(false);
       setHasError(true);
       handleTitleChange('Failed to load');
