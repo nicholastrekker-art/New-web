@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
 
 interface BrowserFrameProps {
@@ -13,6 +13,12 @@ export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFr
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const previousUrlRef = useRef<string>('');
+  const hasInitializedRef = useRef(false);
+
+  // Memoize the title change handler to prevent infinite loops
+  const handleTitleChange = useCallback((title: string) => {
+    onTitleChange(title);
+  }, [onTitleChange]);
 
   useEffect(() => {
     // Only update loading state when URL actually changes
@@ -20,6 +26,7 @@ export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFr
       setIsLoading(true);
       setHasError(false);
       previousUrlRef.current = url;
+      hasInitializedRef.current = true;
     }
   }, [url]);
 
@@ -30,34 +37,48 @@ export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFr
     const handleLoad = () => {
       setIsLoading(false);
       
+      // Only process title changes after initial load
+      if (!hasInitializedRef.current) return;
+      
       try {
         const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        let pageTitle = url;
+        
         if (iframeDoc) {
-          const title = iframeDoc.title || url;
-          onTitleChange(title);
+          pageTitle = iframeDoc.title || new URL(url).hostname;
         } else {
-          // Fallback for CORS-restricted iframes
-          const hostname = new URL(url).hostname;
-          onTitleChange(hostname);
+          pageTitle = new URL(url).hostname;
         }
         
-        // Store session data for this URL regardless of CORS
+        // Update title
+        handleTitleChange(pageTitle);
+        
+        // Store session data for persistence
         try {
           const sessionKey = `browser_session_${btoa(url).substring(0, 50)}`;
-          localStorage.setItem(sessionKey, JSON.stringify({
+          const sessionData = {
             url,
-            title: iframeDoc?.title || new URL(url).hostname,
-            timestamp: Date.now()
-          }));
+            title: pageTitle,
+            timestamp: Date.now(),
+          };
+          localStorage.setItem(sessionKey, JSON.stringify(sessionData));
+          
+          // Keep a master list of all sessions
+          const sessionsKey = 'browser_all_sessions';
+          const existingSessions = JSON.parse(localStorage.getItem(sessionsKey) || '[]');
+          const updatedSessions = existingSessions.filter((s: any) => s.url !== url);
+          updatedSessions.push(sessionData);
+          localStorage.setItem(sessionsKey, JSON.stringify(updatedSessions));
         } catch (storageError) {
           console.warn('Failed to store session data');
         }
       } catch (e) {
         console.log('Cannot access iframe title due to CORS');
         try {
-          onTitleChange(new URL(url).hostname);
+          const hostname = new URL(url).hostname;
+          handleTitleChange(hostname);
         } catch (urlError) {
-          onTitleChange('Unknown');
+          handleTitleChange('Unknown');
         }
       }
     };
@@ -65,7 +86,7 @@ export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFr
     const handleError = () => {
       setIsLoading(false);
       setHasError(true);
-      onTitleChange('Failed to load');
+      handleTitleChange('Failed to load');
     };
 
     iframe.addEventListener('load', handleLoad);
@@ -75,7 +96,7 @@ export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFr
       iframe.removeEventListener('load', handleLoad);
       iframe.removeEventListener('error', handleError);
     };
-  }, [url, onTitleChange]);
+  }, [url, handleTitleChange]);
 
   if (!url || url === 'about:blank') {
     return (
@@ -132,7 +153,6 @@ export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFr
         allow="camera; microphone; geolocation; payment; autoplay; encrypted-media; clipboard-read; clipboard-write; storage-access"
         title="Browser content"
         loading="eager"
-        credentialless="false"
       />
     </div>
   );

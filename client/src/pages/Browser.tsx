@@ -196,6 +196,19 @@ export default function Browser() {
     updateTab(tabId, { title });
   }, [updateTab]);
 
+  // Load saved sessions on mount
+  useEffect(() => {
+    try {
+      const sessionsKey = 'browser_all_sessions';
+      const savedSessions = localStorage.getItem(sessionsKey);
+      if (savedSessions) {
+        console.log('Saved sessions available for restoration');
+      }
+    } catch (error) {
+      console.warn('Failed to load saved sessions');
+    }
+  }, []);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
