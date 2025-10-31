@@ -196,6 +196,10 @@ export default function Browser() {
     updateTab(tabId, { title });
   }, [updateTab]);
 
+  const handleLoadingChange = useCallback((tabId: string, isLoading: boolean) => {
+    updateTab(tabId, { isLoading });
+  }, [updateTab]);
+
   // Load saved sessions on mount
   useEffect(() => {
     try {
@@ -281,6 +285,7 @@ export default function Browser() {
             url={tab.url}
             isActive={tab.id === activeTabId}
             onTitleChange={(title) => handleTitleChange(tab.id, title)}
+            onLoadingChange={(isLoading) => handleLoadingChange(tab.id, isLoading)}
           />
         ))}
       </div>

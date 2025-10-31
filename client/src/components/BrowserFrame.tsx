@@ -6,9 +6,10 @@ interface BrowserFrameProps {
   url: string;
   isActive: boolean;
   onTitleChange: (title: string) => void;
+  onLoadingChange?: (isLoading: boolean) => void;
 }
 
-export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFrameProps) {
+export default function BrowserFrame({ url, isActive, onTitleChange, onLoadingChange }: BrowserFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
@@ -20,22 +21,30 @@ export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFr
     onTitleChange(title);
   }, [onTitleChange]);
 
+  // Memoize the loading change handler
+  const handleLoadingChange = useCallback((loading: boolean) => {
+    setIsLoading(loading);
+    if (onLoadingChange) {
+      onLoadingChange(loading);
+    }
+  }, [onLoadingChange]);
+
   useEffect(() => {
     // Only update loading state when URL actually changes
     if (url !== previousUrlRef.current && url !== 'about:blank') {
-      setIsLoading(true);
+      handleLoadingChange(true);
       setHasError(false);
       previousUrlRef.current = url;
       hasInitializedRef.current = true;
     }
-  }, [url]);
+  }, [url, handleLoadingChange]);
 
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
 
     const handleLoad = () => {
-      setIsLoading(false);
+      handleLoadingChange(false);
       
       // Only process title changes after initial load
       if (!hasInitializedRef.current) return;
@@ -84,7 +93,7 @@ export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFr
     };
 
     const handleError = () => {
-      setIsLoading(false);
+      handleLoadingChange(false);
       setHasError(true);
       handleTitleChange('Failed to load');
     };
@@ -96,7 +105,7 @@ export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFr
       iframe.removeEventListener('load', handleLoad);
       iframe.removeEventListener('error', handleError);
     };
-  }, [url, handleTitleChange]);
+  }, [url, handleTitleChange, handleLoadingChange]);
 
   if (!url || url === 'about:blank') {
     return (
