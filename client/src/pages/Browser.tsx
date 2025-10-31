@@ -281,26 +281,15 @@ export default function Browser() {
       />
 
       <div className="flex-1 relative overflow-hidden">
-        {tabs.map(tab => {
-          // Create stable callback references per tab
-          const onTitleChangeForTab = useCallback((title: string) => {
-            handleTitleChange(tab.id, title);
-          }, [tab.id]);
-          
-          const onLoadingChangeForTab = useCallback((isLoading: boolean) => {
-            handleLoadingChange(tab.id, isLoading);
-          }, [tab.id]);
-          
-          return (
-            <BrowserFrame
-              key={tab.id}
-              url={tab.url}
-              isActive={tab.id === activeTabId}
-              onTitleChange={onTitleChangeForTab}
-              onLoadingChange={onLoadingChangeForTab}
-            />
-          );
-        })}
+        {tabs.map(tab => (
+          <BrowserFrame
+            key={tab.id}
+            url={tab.url}
+            isActive={tab.id === activeTabId}
+            onTitleChange={(title) => handleTitleChange(tab.id, title)}
+            onLoadingChange={(isLoading) => handleLoadingChange(tab.id, isLoading)}
+          />
+        ))}
       </div>
     </div>
   );
