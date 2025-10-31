@@ -16,7 +16,7 @@ export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFr
 
   useEffect(() => {
     // Only update loading state when URL actually changes
-    if (url !== previousUrlRef.current) {
+    if (url !== previousUrlRef.current && url !== 'about:blank') {
       setIsLoading(true);
       setHasError(false);
       previousUrlRef.current = url;
@@ -35,18 +35,30 @@ export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFr
         if (iframeDoc) {
           const title = iframeDoc.title || url;
           onTitleChange(title);
-          
-          // Store session data for this URL
+        } else {
+          // Fallback for CORS-restricted iframes
+          const hostname = new URL(url).hostname;
+          onTitleChange(hostname);
+        }
+        
+        // Store session data for this URL regardless of CORS
+        try {
           const sessionKey = `browser_session_${btoa(url).substring(0, 50)}`;
           localStorage.setItem(sessionKey, JSON.stringify({
             url,
-            title,
+            title: iframeDoc?.title || new URL(url).hostname,
             timestamp: Date.now()
           }));
+        } catch (storageError) {
+          console.warn('Failed to store session data');
         }
       } catch (e) {
         console.log('Cannot access iframe title due to CORS');
-        onTitleChange(new URL(url).hostname);
+        try {
+          onTitleChange(new URL(url).hostname);
+        } catch (urlError) {
+          onTitleChange('Unknown');
+        }
       }
     };
 
@@ -116,10 +128,11 @@ export default function BrowserFrame({ url, isActive, onTitleChange }: BrowserFr
         ref={iframeRef}
         src={url}
         className="w-full h-full border-0"
-        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-storage-access-by-user-activation"
-        allow="camera; microphone; geolocation; payment; autoplay; encrypted-media; clipboard-read; clipboard-write"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+        allow="camera; microphone; geolocation; payment; autoplay; encrypted-media; clipboard-read; clipboard-write; storage-access"
         title="Browser content"
         loading="eager"
+        credentialless="false"
       />
     </div>
   );
