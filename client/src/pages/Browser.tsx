@@ -193,10 +193,12 @@ export default function Browser() {
   }, [tabs.length, activeTabId, handleNewTab]);
 
   const handleTitleChange = useCallback((tabId: string, title: string) => {
+    console.log(`[Browser] Tab ${tabId} title changed to: ${title}`);
     updateTab(tabId, { title });
   }, [updateTab]);
 
   const handleLoadingChange = useCallback((tabId: string, isLoading: boolean) => {
+    console.log(`[Browser] Tab ${tabId} loading state: ${isLoading}`);
     updateTab(tabId, { isLoading });
   }, [updateTab]);
 
@@ -279,15 +281,26 @@ export default function Browser() {
       />
 
       <div className="flex-1 relative overflow-hidden">
-        {tabs.map(tab => (
-          <BrowserFrame
-            key={tab.id}
-            url={tab.url}
-            isActive={tab.id === activeTabId}
-            onTitleChange={(title) => handleTitleChange(tab.id, title)}
-            onLoadingChange={(isLoading) => handleLoadingChange(tab.id, isLoading)}
-          />
-        ))}
+        {tabs.map(tab => {
+          // Create stable callback references per tab
+          const onTitleChangeForTab = useCallback((title: string) => {
+            handleTitleChange(tab.id, title);
+          }, [tab.id]);
+          
+          const onLoadingChangeForTab = useCallback((isLoading: boolean) => {
+            handleLoadingChange(tab.id, isLoading);
+          }, [tab.id]);
+          
+          return (
+            <BrowserFrame
+              key={tab.id}
+              url={tab.url}
+              isActive={tab.id === activeTabId}
+              onTitleChange={onTitleChangeForTab}
+              onLoadingChange={onLoadingChangeForTab}
+            />
+          );
+        })}
       </div>
     </div>
   );

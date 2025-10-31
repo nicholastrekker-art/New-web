@@ -21,17 +21,19 @@ export default function BrowserFrame({ url, isActive, onTitleChange, onLoadingCh
     onTitleChange(title);
   }, [onTitleChange]);
 
-  // Memoize the loading change handler
+  // Memoize the loading change handler - only call parent when value actually changes
   const handleLoadingChange = useCallback((loading: boolean) => {
+    console.log(`[BrowserFrame] URL: ${url} - Loading state changing to: ${loading}`);
     setIsLoading(loading);
     if (onLoadingChange) {
       onLoadingChange(loading);
     }
-  }, [onLoadingChange]);
+  }, [onLoadingChange, url]);
 
   useEffect(() => {
     // Only update loading state when URL actually changes
     if (url !== previousUrlRef.current && url !== 'about:blank') {
+      console.log(`[BrowserFrame] Navigating from ${previousUrlRef.current} to ${url}`);
       handleLoadingChange(true);
       setHasError(false);
       previousUrlRef.current = url;
@@ -44,10 +46,14 @@ export default function BrowserFrame({ url, isActive, onTitleChange, onLoadingCh
     if (!iframe) return;
 
     const handleLoad = () => {
+      console.log(`[BrowserFrame] Load event fired for: ${url}`);
       handleLoadingChange(false);
       
       // Only process title changes after initial load
-      if (!hasInitializedRef.current) return;
+      if (!hasInitializedRef.current) {
+        console.log(`[BrowserFrame] Skipping title update - not initialized`);
+        return;
+      }
       
       try {
         const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
@@ -55,8 +61,18 @@ export default function BrowserFrame({ url, isActive, onTitleChange, onLoadingCh
         
         if (iframeDoc) {
           pageTitle = iframeDoc.title || new URL(url).hostname;
+          console.log(`[BrowserFrame] Successfully accessed iframe document. Title: ${pageTitle}`);
+          
+          // Log cookies for debugging authentication
+          try {
+            const cookies = iframeDoc.cookie;
+            console.log(`[BrowserFrame] Cookies available: ${cookies ? 'Yes' : 'No'}`);
+          } catch (cookieError) {
+            console.log(`[BrowserFrame] Cannot access cookies due to CORS`);
+          }
         } else {
           pageTitle = new URL(url).hostname;
+          console.log(`[BrowserFrame] Cannot access iframe document (CORS), using hostname: ${pageTitle}`);
         }
         
         // Update title
@@ -78,21 +94,24 @@ export default function BrowserFrame({ url, isActive, onTitleChange, onLoadingCh
           const updatedSessions = existingSessions.filter((s: any) => s.url !== url);
           updatedSessions.push(sessionData);
           localStorage.setItem(sessionsKey, JSON.stringify(updatedSessions));
+          console.log(`[BrowserFrame] Session data stored for: ${url}`);
         } catch (storageError) {
-          console.warn('Failed to store session data');
+          console.warn('[BrowserFrame] Failed to store session data:', storageError);
         }
       } catch (e) {
-        console.log('Cannot access iframe title due to CORS');
+        console.log('[BrowserFrame] Cannot access iframe title due to CORS');
         try {
           const hostname = new URL(url).hostname;
           handleTitleChange(hostname);
         } catch (urlError) {
+          console.error('[BrowserFrame] Invalid URL:', urlError);
           handleTitleChange('Unknown');
         }
       }
     };
 
-    const handleError = () => {
+    const handleError = (event?: Event) => {
+      console.error(`[BrowserFrame] Error loading URL: ${url}`, event);
       handleLoadingChange(false);
       setHasError(true);
       handleTitleChange('Failed to load');
@@ -158,10 +177,12 @@ export default function BrowserFrame({ url, isActive, onTitleChange, onLoadingCh
         ref={iframeRef}
         src={url}
         className="w-full h-full border-0"
-        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-        allow="camera; microphone; geolocation; payment; autoplay; encrypted-media; clipboard-read; clipboard-write; storage-access"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-storage-access-by-user-activation allow-top-navigation allow-top-navigation-by-user-activation allow-presentation"
+        allow="camera *; microphone *; geolocation *; payment *; autoplay *; encrypted-media *; clipboard-read *; clipboard-write *; storage-access *; publickey-credentials-get *"
+        referrerPolicy="no-referrer-when-downgrade"
         title="Browser content"
         loading="eager"
+        credentialless={false}
       />
     </div>
   );

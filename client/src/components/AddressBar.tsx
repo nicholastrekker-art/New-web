@@ -35,19 +35,20 @@ export default function AddressBar({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (inputValue.trim()) {
-      let url = inputValue.trim();
-      
+      let processedUrl = inputValue.trim();
+
       // Check if it's a search query or URL
-      const isUrl = url.includes('.') || url.startsWith('localhost') || url.startsWith('http');
-      
+      const isUrl = processedUrl.includes('.') || processedUrl.startsWith('localhost') || processedUrl.startsWith('http');
+
       if (!isUrl) {
         // Treat as search query (you can customize this to use preferred search engine)
-        url = `https://www.google.com/search?q=${encodeURIComponent(url)}`;
-      } else if (!url.startsWith('http://') && !url.startsWith('https://')) {
-        url = 'https://' + url;
+        processedUrl = `https://www.google.com/search?q=${encodeURIComponent(inputValue.trim())}`;
+      } else if (!processedUrl.startsWith('http://') && !processedUrl.startsWith('https://')) {
+        processedUrl = 'https://' + processedUrl;
       }
-      
-      onNavigate(url);
+
+      console.log(`[AddressBar] Navigating to: ${processedUrl}`);
+      onNavigate(processedUrl);
     }
   };
 
