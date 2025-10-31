@@ -6,8 +6,6 @@ export default function BrowserFrameExample() {
       <BrowserFrame
         url="https://example.com"
         isActive={true}
-        onLoadStart={() => console.log('Loading started')}
-        onLoadEnd={() => console.log('Loading ended')}
         onTitleChange={(title) => console.log('Title changed:', title)}
       />
     </div>

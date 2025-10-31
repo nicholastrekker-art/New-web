@@ -5,35 +5,37 @@ import { Button } from "@/components/ui/button";
 interface BrowserFrameProps {
   url: string;
   isActive: boolean;
-  onLoadStart?: () => void;
-  onLoadEnd?: () => void;
   onTitleChange?: (title: string) => void;
 }
 
 export default function BrowserFrame({
   url,
   isActive,
-  onLoadStart,
-  onLoadEnd,
   onTitleChange,
 }: BrowserFrameProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const prevUrlRef = useRef<string>(url);
   const [isLoading, setIsLoading] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    if (url && url !== 'about:blank') {
-      setIsLoading(true);
-      setHasError(false);
-      onLoadStart?.();
+    // Only update loading state if URL actually changed
+    if (prevUrlRef.current !== url) {
+      prevUrlRef.current = url;
+      if (url && url !== 'about:blank') {
+        setIsLoading(true);
+        setHasError(false);
+      } else {
+        setIsLoading(false);
+        setHasError(false);
+      }
     }
-  }, [url, onLoadStart]);
+  }, [url]);
 
   const handleLoad = () => {
     setIsLoading(false);
     setHasError(false);
-    onLoadEnd?.();
 
     try {
       const iframe = iframeRef.current;
@@ -49,7 +51,6 @@ export default function BrowserFrame({
     setIsLoading(false);
     setHasError(true);
     setErrorMessage("Failed to load the page. The website may not allow embedding.");
-    onLoadEnd?.();
   };
 
   const handleRetry = () => {

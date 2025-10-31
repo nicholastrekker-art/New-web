@@ -189,14 +189,6 @@ export default function Browser() {
     });
   }, [tabs.length, activeTabId, handleNewTab]);
 
-  const handleLoadStart = useCallback((tabId: string) => {
-    updateTab(tabId, { isLoading: true });
-  }, [updateTab]);
-
-  const handleLoadEnd = useCallback((tabId: string) => {
-    updateTab(tabId, { isLoading: false });
-  }, [updateTab]);
-
   const handleTitleChange = useCallback((tabId: string, title: string) => {
     updateTab(tabId, { title });
   }, [updateTab]);
@@ -272,8 +264,6 @@ export default function Browser() {
             key={tab.id}
             url={tab.url}
             isActive={tab.id === activeTabId}
-            onLoadStart={() => handleLoadStart(tab.id)}
-            onLoadEnd={() => handleLoadEnd(tab.id)}
             onTitleChange={(title) => handleTitleChange(tab.id, title)}
           />
         ))}
