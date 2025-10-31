@@ -41,6 +41,31 @@ export default function BrowserFrame({ url, isActive, onTitleChange, onLoadingCh
     }
   }, [url, handleLoadingChange]);
 
+  // Track iframe URL changes via polling (for when user clicks links inside iframe)
+  useEffect(() => {
+    const iframe = iframeRef.current;
+    if (!iframe || !isActive) return;
+
+    let lastKnownUrl = url;
+    const pollInterval = setInterval(() => {
+      try {
+        // Try to access the iframe's current location
+        const currentUrl = iframe.contentWindow?.location.href;
+        if (currentUrl && currentUrl !== lastKnownUrl && currentUrl !== 'about:blank') {
+          console.log(`[BrowserFrame] Detected URL change via polling: ${lastKnownUrl} -> ${currentUrl}`);
+          lastKnownUrl = currentUrl;
+          // Notify parent about the URL change
+          onTitleChange(new URL(currentUrl).hostname);
+        }
+      } catch (e) {
+        // CORS restriction - cannot access iframe location
+        // This is expected for cross-origin iframes
+      }
+    }, 500); // Poll every 500ms
+
+    return () => clearInterval(pollInterval);
+  }, [url, isActive, onTitleChange]);
+
   useEffect(() => {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -177,8 +202,8 @@ export default function BrowserFrame({ url, isActive, onTitleChange, onLoadingCh
         ref={iframeRef}
         src={url}
         className="w-full h-full border-0"
-        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-storage-access-by-user-activation allow-top-navigation allow-top-navigation-by-user-activation allow-presentation"
-        allow="camera *; microphone *; geolocation *; payment *; autoplay *; encrypted-media *; clipboard-read *; clipboard-write *; storage-access *; publickey-credentials-get *"
+        sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-storage-access-by-user-activation allow-top-navigation allow-top-navigation-by-user-activation allow-presentation allow-orientation-lock"
+        allow="camera *; microphone *; geolocation *; payment *; autoplay *; encrypted-media *; clipboard-read *; clipboard-write *; storage-access *; publickey-credentials-get *; display-capture *"
         referrerPolicy="no-referrer-when-downgrade"
         title="Browser content"
         loading="eager"
